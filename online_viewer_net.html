@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>مقص الفيديو</title>
+<meta name="description" content="قص الفيديو على أي مقاس، أضف نصاً، وقسّمه إلى أجزاء. كل شيء داخل المتصفح.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@500&family=Reem+Kufi:wght@600&family=Cairo:wght@700&family=Tajawal:wght@700&family=Amiri:wght@700&family=Lalezar&display=swap">
+<style>
+html{color-scheme:light}
+body{margin:0}
+[hidden]{display:none!important}
+img,video{max-width:100%}
+:root{
+  --bg:#ECEEF2; --surface:#FFFFFF; --surface2:#F3F4F8; --ink:#161A22; --muted:#5A6373; --line:#D3D8E0;
+  --accent:#0F766E; --accent-ink:#FFFFFF; --accent-soft:#DCF0ED; --stage:#0E1116; --danger:#B42318;
+  --f-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  --f-display:"Reem Kufi","IBM Plex Sans Arabic","Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1218; --surface:#171B23; --surface2:#1E232D; --ink:#E9ECF2; --muted:#9BA4B3; --line:#2C323E;
+    --accent:#3FD0C4; --accent-ink:#06211F; --accent-soft:#12312F; --stage:#06080B; --danger:#FF8A80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1218; --surface:#171B23; --surface2:#1E232D; --ink:#E9ECF2; --muted:#9BA4B3; --line:#2C323E;
+  --accent:#3FD0C4; --accent-ink:#06211F; --accent-soft:#12312F; --stage:#06080B; --danger:#FF8A80;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-body);
+  padding-block:12px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:1080px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:8px 6px}
+h1{font:600 26px/1.3 var(--f-display);margin:0;letter-spacing:0}
+header p{margin:0;color:var(--muted);font-size:13.5px;min-width:0}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:860px){
+  .layout{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
+}
+.stage-col{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:3;background:var(--bg);
+  display:grid;gap:8px;padding-block:6px 8px;min-width:0
+}
+@media (min-width:860px){.stage-col{top:12px}}
+.stage{
+  position:relative;background:var(--stage);border-radius:12px;padding:10px;
+  display:grid;place-items:center;min-height:180px;overflow:hidden
+}
+.stage canvas{
+  display:block;max-width:100%;max-height:42vh;width:auto;height:auto;
+  touch-action:none;cursor:grab;border-radius:3px
+}
+.stage canvas.dragging{cursor:grabbing}
+@media (min-width:860px){.stage canvas{max-height:68vh}}
+.pick{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:6px;text-align:center;pointer-events:none}
+.pick .btn{pointer-events:auto}
+.pick small{color:#C5CBD6;font-family:var(--f-mono);font-size:11.5px;letter-spacing:.04em}
+.hint{margin:0;color:var(--muted);font-size:12.5px}
+.bar{display:flex;align-items:center;gap:10px}
+.bar .scrub{flex:1;min-width:0}
+.time{font:500 12.5px var(--f-mono);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.icon-btn{
+  display:inline-grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;
+  background:var(--accent);color:var(--accent-ink);border:0;cursor:pointer
+}
+.icon-btn:disabled{opacity:.4;cursor:default}
+.icon-btn svg{width:18px;height:18px;fill:currentColor}
+.meta{font:500 12px var(--f-mono);color:var(--muted);margin:0;overflow-wrap:anywhere}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.sec{padding:16px;border-top:1px solid var(--line);min-width:0}
+.panel > .sec:first-child,.panel > fieldset > .sec:first-child{border-top:0}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+.sec h2{display:flex;align-items:center;gap:10px;margin:0 0 12px;font:600 15px/1.4 var(--f-body)}
+.n{font:500 11.5px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 6px;line-height:1.7}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.field{display:grid;gap:6px;margin-top:14px;min-width:0}
+.field:first-of-type{margin-top:0}
+.field > label,.lbl{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.lbl b{font:500 12px var(--f-mono);color:var(--ink)}
+input[type=text],input[type=number],select,textarea{
+  width:100%;min-width:0;background:var(--surface2);border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;font-size:16px;line-height:1.5;min-height:44px
+}
+textarea{resize:vertical;min-height:72px}
+input[type=range]{width:100%;accent-color:var(--accent);min-height:32px;margin:0}
+input[type=color]{width:44px;height:44px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);cursor:pointer;flex:none}
+.btn,.chip{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:6px 14px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface2);cursor:pointer;line-height:1.3
+}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.danger{color:var(--danger)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.ratios{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+.ratios .chip{justify-content:flex-start;text-align:start}
+.shape{display:block;border:1.5px solid currentColor;border-radius:2px;flex:none}
+.ratios b{font:500 13px var(--f-mono);display:block}
+.ratios small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
+.dims{font:500 12.5px var(--f-mono);color:var(--muted);margin:10px 0 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sw{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.check{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.msg{min-height:22px;margin:10px 0 0;font-size:13.5px;color:var(--muted)}
+.msg.err{color:var(--danger)}
+progress{width:100%;height:10px;accent-color:var(--accent);margin-top:12px}
+.result{display:grid;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.result video{width:100%;max-height:50vh;background:var(--stage);border-radius:8px}
+.plan{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--surface2);font-size:13.5px;color:var(--muted)}
+.plan b{color:var(--ink);font-weight:600}
+.parts{display:grid;gap:8px}
+.part{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
+.part .pn{font-weight:600;min-width:64px}
+.part .meta{flex:1 1 150px;min-width:0}
+.part .btn{min-height:40px;padding:4px 12px}
+[dir=ltr]{direction:ltr}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<div class="app" dir="rtl" lang="ar">
+  <header>
+    <h1>مقص الفيديو</h1>
+    <p>اقصّ الفيديو على المقاس الذي تريده وأضف نصاً. المعالجة تتم داخل متصفحك ولا يُرفع الملف إلى أي خادم.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage-col">
+      <div class="stage" id="stage">
+        <canvas id="cv" width="720" height="1280" aria-label="معاينة الفيديو بعد القص"></canvas>
+        <div class="pick" id="pick">
+          <button class="btn primary" id="pickBtn" type="button">اختر فيديو من جهازك</button>
+          <small>MP4 · MOV · WEBM</small>
+        </div>
+        <video id="vid" playsinline preload="auto" style="position:absolute;width:1px;height:1px;opacity:.01;pointer-events:none"></video>
+      </div>
+      <div class="bar" dir="ltr">
+        <button class="icon-btn" id="playBtn" type="button" aria-label="تشغيل" disabled>
+          <svg viewBox="0 0 24 24" id="icoPlay"><path d="M8 5v14l11-7z"/></svg>
+          <svg viewBox="0 0 24 24" id="icoPause" hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+        </button>
+        <input class="scrub" id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="موضع التشغيل" disabled>
+        <span class="time" id="time">00:00.0 / 00:00.0</span>
+      </div>
+      <p class="hint">اسحب الفيديو لتحريك القص، واسحب النص لتغيير مكانه.</p>
+      <p class="meta" id="meta" dir="ltr"></p>
+    </div>
+
+    <div class="panel">
+      <fieldset id="ctrls">
+        <div class="sec">
+          <h2><span class="n">1</span>الفيديو</h2>
+          <div class="row">
+            <button class="btn" id="openBtn" type="button">اختيار فيديو</button>
+            <span class="hint" id="fileName">لم يتم اختيار ملف</span>
+          </div>
+          <input id="file" type="file" accept="video/*" hidden>
+        </div>
+
+        <div class="sec">
+          <h2><span class="n">2</span>الأبعاد</h2>
+          <div class="ratios" id="ratios"></div>
+          <div class="two" id="customRow" style="margin-top:12px" hidden>
+            <div class="field"><label for="cw">العرض (بكسل)</label><input id="cw" type="number" inputmode="numeric" min="64" max="4096" step="2" value="720"></div>
+            <div class="field"><label for="ch">الارتفاع (بكسل)</label><input id="ch" type="number" inputmode="numeric" min="64" max="4096" step="2" value="1280"></div>
+          </div>
+          <div class="field" id="qualityField">
+            <label for="quality">الجودة</label>
+            <select id="quality">
+              <option value="480">480p، أسرع</option>
+              <option value="720" selected>720p، متوازن</option>
+              <option value="1080">1080p، أعلى دقة</option>
+            </select>
+          </div>
+          <p class="dims" id="dims" dir="ltr"></p>
+        </div>
+
+        <div class="sec">
+          <h2><span class="n">3</span>الإطار</h2>
+          <div class="row" id="fitRow">
+            <button class="chip" type="button" data-fit="fill" aria-pressed="true">ملء الإطار</button>
+            <button class="chip" type="button" data-fit="fit" aria-pressed="false">احتواء كامل</button>
+            <label class="check" id="bgWrap" hidden>لون الخلفية <input id="bgColor" type="color" value="#000000" style="margin-inline-start:4px"></label>
+          </div>
+          <div class="field">
+            <div class="lbl"><label for="zoom">التكبير</label><b id="zoomVal">100%</b></div>
+            <input id="zoom" type="range" min="100" max="400" step="1" value="100" dir="ltr">
+          </div>
+          <div class="row" style="margin-top:12px"><button class="btn" id="resetFrame" type="button">إعادة ضبط الإطار</button></div>
+        </div>
+
+        <div class="sec">
+          <h2><span class="n">4</span>النص</h2>
+          <div class="row" id="layerChips"></div>
+          <div id="textControls">
+            <div class="field">
+              <label for="txt">المحتوى</label>
+              <textarea id="txt" dir="auto" rows="2"></textarea>
+            </div>
+            <div class="two">
+              <div class="field">
+                <label for="font">الخط</label>
+                <select id="font"></select>
+              </div>
+              <div class="field">
+                <div class="lbl"><label for="size">الحجم</label><b id="sizeVal"></b></div>
+                <input id="size" type="range" min="30" max="200" step="1" dir="ltr">
+              </div>
+            </div>
+            <div class="field">
+              <span class="lbl">اللون</span>
+              <div class="swatches" id="swatches"></div>
+            </div>
+            <div class="row" style="margin-top:6px">
+              <label class="check"><input type="checkbox" id="boxOn"> خلفية خلف النص</label>
+              <label class="check"><input type="checkbox" id="shadowOn"> ظل</label>
+            </div>
+            <div class="field">
+              <span class="lbl">الموضع</span>
+              <div class="row">
+                <button class="btn" type="button" data-pos="0.14">أعلى</button>
+                <button class="btn" type="button" data-pos="0.5">الوسط</button>
+                <button class="btn" type="button" data-pos="0.86">أسفل</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sec">
+          <h2><span class="n">5</span>التقسيم</h2>
+          <div class="row" id="splitRow">
+            <button class="chip" type="button" data-split="none" aria-pressed="true">بدون تقسيم</button>
+            <button class="chip" type="button" data-split="count" aria-pressed="false">حسب عدد الأجزاء</button>
+            <button class="chip" type="button" data-split="minutes" aria-pressed="false">حسب مدة الجزء</button>
+          </div>
+          <div class="field" id="countField" hidden>
+            <label for="splitCount">عدد الأجزاء</label>
+            <input id="splitCount" type="number" inputmode="numeric" min="2" max="100" step="1" value="2">
+          </div>
+          <div class="field" id="minField" hidden>
+            <label for="splitMin">مدة كل جزء (بالدقائق)</label>
+            <input id="splitMin" type="number" inputmode="decimal" min="0.1" step="0.5" value="1">
+          </div>
+          <p class="plan" id="plan">اختر فيديو لرؤية التقسيم.</p>
+        </div>
+      </fieldset>
+
+      <div class="sec">
+        <h2><span class="n">6</span>التصدير</h2>
+        <p class="hint" style="margin:0 0 12px">يتم التصدير بسرعة التشغيل، فيحتاج مجموع الأجزاء وقتاً بمدة الفيديو كله. ابقَ في هذه الصفحة حتى ينتهي.</p>
+        <div class="row">
+          <button class="btn primary" id="exportBtn" type="button" disabled>تصدير الفيديو</button>
+          <button class="btn danger" id="cancelBtn" type="button" hidden>إلغاء</button>
+        </div>
+        <progress id="prog" max="1" value="0" hidden></progress>
+        <p class="msg" id="msg" role="status" aria-live="polite"></p>
+        <div class="result" id="result" hidden>
+          <video id="resVid" controls playsinline></video>
+          <div class="parts" id="parts"></div>
+          <div class="row"><button class="btn primary" id="saveAllBtn" type="button" hidden>حفظ كل الأجزاء</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d'), vid = $('vid');
+const AR = /[\u0600-\u06FF]/;
+const FONTS = [
+  ['Cairo','كايرو',700], ['Tajawal','تجوال',700], ['Reem Kufi','ريم كوفي',600],
+  ['Amiri','أميري',700], ['Lalezar','لاليزار',400]
+];
+const RATIOS = [
+  ['9:16',9,16,'ريلز وتيك توك'], ['1:1',1,1,'منشور مربع'], ['4:5',4,5,'إنستغرام عمودي'],
+  ['16:9',16,9,'يوتيوب'], ['3:4',3,4,'عمودي كلاسيكي']
+];
+const SWATCHES = ['#FFFFFF','#000000','#FFD60A','#FF453A','#32D74B'];
+
+const S = {
+  vw:0, vh:0, dur:0, hasVideo:false, name:'',
+  ratioIdx:0, custom:false, short:720, outW:720, outH:1280,
+  zoom:1, panX:0, panY:0, fit:'fill', bg:'#000000',
+  layers:[], sel:0, dirty:true, exporting:false, url:null
+};
+let uid = 1;
+const newLayer = (text, y) => ({id:uid++, text, x:.5, y, size:.085, color:'#FFFFFF', font:'Cairo', box:false, shadow:true, _box:null});
+S.layers.push(newLayer('اكتب نصك هنا', .84));
+
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const even = n => Math.max(2, Math.round(n/2)*2);
+const fmt = t => { t = Math.max(0, t||0); const m = Math.floor(t/60), s = t - m*60; return String(m).padStart(2,'0')+':'+s.toFixed(1).padStart(4,'0'); };
+const fmtBytes = b => b > 1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(b/1024))+' KB';
+const lum = hex => { const n = parseInt(hex.slice(1),16); return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fontOf = L => FONTS.find(f => f[0] === L.font) || FONTS[0];
+
+/* ---------- الأبعاد ---------- */
+function computeOut(){
+  if (!S.custom){
+    const [, w, h] = RATIOS[S.ratioIdx];
+    if (w <= h){ S.outW = even(S.short); S.outH = even(S.short*h/w); }
+    else { S.outH = even(S.short); S.outW = even(S.short*w/h); }
+  }
+  cv.width = S.outW; cv.height = S.outH;
+  $('dims').textContent = S.outW + ' × ' + S.outH + ' px';
+  $('cw').value = S.outW; $('ch').value = S.outH;
+  S.dirty = true;
+}
+function buildRatios(){
+  const box = $('ratios'); box.innerHTML = '';
+  RATIOS.forEach((r, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip';
+    b.setAttribute('aria-pressed', String(!S.custom && S.ratioIdx === i));
+    const k = 24 / Math.max(r[1], r[2]);
+    b.innerHTML = '<i class="shape" style="width:'+(r[1]*k)+'px;height:'+(r[2]*k)+'px"></i><span><b dir="ltr">'+r[0]+'</b><small>'+r[3]+'</small></span>';
+    b.onclick = () => { S.custom = false; S.ratioIdx = i; S.panX = S.panY = 0; syncDimsUI(); computeOut(); };
+    box.appendChild(b);
+  });
+  const c = document.createElement('button');
+  c.type = 'button'; c.className = 'chip';
+  c.setAttribute('aria-pressed', String(S.custom));
+  c.innerHTML = '<i class="shape" style="width:20px;height:14px;border-style:dashed"></i><span><b>مخصص</b><small>أدخل الأرقام</small></span>';
+  c.onclick = () => { S.custom = true; syncDimsUI(); };
+  box.appendChild(c);
+}
+function syncDimsUI(){
+  buildRatios();
+  $('customRow').hidden = !S.custom;
+  $('qualityField').hidden = S.custom;
+}
+function applyCustom(){
+  const w = clamp(even(+$('cw').value || 720), 64, 4096), h = clamp(even(+$('ch').value || 1280), 64, 4096);
+  S.outW = w; S.outH = h; S.panX = S.panY = 0; computeOut();
+}
+$('cw').onchange = $('ch').onchange = applyCustom;
+$('quality').onchange = e => { S.short = +e.target.value; computeOut(); };
+
+/* ---------- الإطار ---------- */
+function geom(){
+  const W = S.outW, H = S.outH;
+  const base = S.fit === 'fill' ? Math.max(W/S.vw, H/S.vh) : Math.min(W/S.vw, H/S.vh);
+  const s = base * S.zoom, dw = S.vw*s, dh = S.vh*s;
+  const mx = Math.abs(dw-W)/2, my = Math.abs(dh-H)/2;
+  S.panX = clamp(S.panX, -mx, mx); S.panY = clamp(S.panY, -my, my);
+  return {dw, dh, dx:(W-dw)/2 + S.panX, dy:(H-dh)/2 + S.panY};
+}
+document.querySelectorAll('[data-fit]').forEach(b => b.onclick = () => {
+  S.fit = b.dataset.fit; S.panX = S.panY = 0;
+  document.querySelectorAll('[data-fit]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $('bgWrap').hidden = S.fit !== 'fit'; S.dirty = true;
+});
+$('bgColor').oninput = e => { S.bg = e.target.value; S.dirty = true; };
+$('zoom').oninput = e => { S.zoom = e.target.value/100; $('zoomVal').textContent = e.target.value + '%'; S.dirty = true; };
+$('resetFrame').onclick = () => { S.zoom = 1; S.panX = S.panY = 0; $('zoom').value = 100; $('zoomVal').textContent = '100%'; S.dirty = true; };
+
+/* ---------- النصوص ---------- */
+function loadFont(L){
+  const f = fontOf(L);
+  return document.fonts ? document.fonts.load(f[2]+' 40px "'+f[0]+'"', L.text || 'ا').catch(()=>{}) : Promise.resolve();
+}
+function wrapText(c, text, maxW){
+  const out = [];
+  text.split('\n').forEach(par => {
+    const words = par.split(/\s+/).filter(Boolean);
+    if (!words.length){ out.push(''); return; }
+    let line = '';
+    words.forEach(w => {
+      const t = line ? line+' '+w : w;
+      if (!line || c.measureText(t).width <= maxW) line = t; else { out.push(line); line = w; }
+    });
+    out.push(line);
+  });
+  return out;
+}
+function rrect(c, x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+function drawLayer(L){
+  if (!L.text.trim()){ L._box = null; return; }
+  const base = Math.min(S.outW, S.outH), fs = Math.max(8, L.size*base), f = fontOf(L);
+  ctx.save();
+  ctx.font = f[2]+' '+fs+'px "'+f[0]+'","IBM Plex Sans Arabic",sans-serif';
+  ctx.direction = AR.test(L.text) ? 'rtl' : 'ltr';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lines = wrapText(ctx, L.text, S.outW*.88), lh = fs*1.35, th = lh*lines.length;
+  const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const cx = L.x*S.outW, cy = L.y*S.outH, pad = fs*.38;
+  L._box = {x:cx-tw/2-pad, y:cy-th/2-pad*.6, w:tw+pad*2, h:th+pad*1.2};
+  if (L.box){
+    ctx.fillStyle = lum(L.color) > .55 ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.82)';
+    rrect(ctx, L._box.x, L._box.y, L._box.w, L._box.h, fs*.3); ctx.fill();
+  }
+  if (L.shadow && !L.box){ ctx.shadowColor = 'rgba(0,0,0,.75)'; ctx.shadowBlur = fs*.14; ctx.shadowOffsetY = fs*.04; }
+  ctx.fillStyle = L.color;
+  lines.forEach((l, i) => ctx.fillText(l, cx, cy - th/2 + lh*(i+.5)));
+  ctx.restore();
+}
+function renderChips(){
+  const box = $('layerChips'); box.innerHTML = '';
+  S.layers.forEach((L, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.setAttribute('aria-pressed', String(i === S.sel));
+    b.textContent = 'نص ' + (i+1);
+    b.onclick = () => { S.sel = i; syncLayerUI(); S.dirty = true; };
+    box.appendChild(b);
+  });
+  const add = document.createElement('button');
+  add.type = 'button'; add.className = 'btn'; add.textContent = '+ نص جديد';
+  add.onclick = () => {
+    const L = newLayer('نص جديد', clamp(.2 + S.layers.length*.12, .1, .9));
+    S.layers.push(L); S.sel = S.layers.length-1; syncLayerUI(); loadFont(L).then(() => S.dirty = true); S.dirty = true;
+  };
+  box.appendChild(add);
+  if (S.layers.length){
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'btn danger'; del.textContent = 'حذف النص';
+    del.onclick = () => { S.layers.splice(S.sel, 1); S.sel = Math.max(0, S.sel-1); syncLayerUI(); S.dirty = true; };
+    box.appendChild(del);
+  }
+}
+function syncLayerUI(){
+  renderChips();
+  const L = S.layers[S.sel];
+  $('textControls').hidden = !L;
+  if (!L) return;
+  $('txt').value = L.text; $('font').value = L.font;
+  $('size').value = Math.round(L.size*1000); $('sizeVal').textContent = Math.round(L.size*1000)/10 + '٪';
+  $('boxOn').checked = L.box; $('shadowOn').checked = L.shadow;
+  document.querySelectorAll('.sw').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.c.toLowerCase() === L.color.toLowerCase())));
+  $('customColor').value = L.color;
+}
+(function buildTextUI(){
+  const sel = $('font');
+  FONTS.forEach(f => { const o = document.createElement('option'); o.value = f[0]; o.textContent = f[1]; sel.appendChild(o); });
+  const wrap = $('swatches');
+  SWATCHES.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'sw'; b.dataset.c = c; b.style.background = c; b.setAttribute('aria-label', 'لون ' + c);
+    b.onclick = () => { const L = S.layers[S.sel]; if (!L) return; L.color = c; syncLayerUI(); S.dirty = true; };
+    wrap.appendChild(b);
+  });
+  const ci = document.createElement('input');
+  ci.type = 'color'; ci.id = 'customColor'; ci.value = '#ffffff'; ci.setAttribute('aria-label', 'لون مخصص');
+  ci.oninput = () => { const L = S.layers[S.sel]; if (!L) return; L.color = ci.value.toUpperCase(); document.querySelectorAll('.sw').forEach(s => s.setAttribute('aria-pressed','false')); S.dirty = true; };
+  wrap.appendChild(ci);
+})();
+$('txt').oninput = e => { const L = S.layers[S.sel]; if (!L) return; L.text = e.target.value; loadFont(L).then(() => S.dirty = true); S.dirty = true; };
+$('font').onchange = e => { const L = S.layers[S.sel]; if (!L) return; L.font = e.target.value; loadFont(L).then(() => S.dirty = true); S.dirty = true; };
+$('size').oninput = e => { const L = S.layers[S.sel]; if (!L) return; L.size = e.target.value/1000; $('sizeVal').textContent = Math.round(L.size*1000)/10 + '٪'; S.dirty = true; };
+$('boxOn').onchange = e => { const L = S.layers[S.sel]; if (L){ L.box = e.target.checked; S.dirty = true; } };
+$('shadowOn').onchange = e => { const L = S.layers[S.sel]; if (L){ L.shadow = e.target.checked; S.dirty = true; } };
+document.querySelectorAll('[data-pos]').forEach(b => b.onclick = () => { const L = S.layers[S.sel]; if (L){ L.x = .5; L.y = +b.dataset.pos; S.dirty = true; } });
+
+/* ---------- الرسم ---------- */
+function render(){
+  const W = S.outW, H = S.outH;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.globalAlpha = 1;
+  if (S.hasVideo && vid.readyState >= 2){
+    ctx.fillStyle = S.fit === 'fit' ? S.bg : '#000'; ctx.fillRect(0,0,W,H);
+    const g = geom(); ctx.drawImage(vid, g.dx, g.dy, g.dw, g.dh);
+  } else {
+    const gr = ctx.createLinearGradient(0,0,W,H); gr.addColorStop(0,'#2B3442'); gr.addColorStop(1,'#141922');
+    ctx.fillStyle = gr; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = Math.max(1, W/540); ctx.beginPath();
+    for (let i = 1; i < 3; i++){ ctx.moveTo(W*i/3,0); ctx.lineTo(W*i/3,H); ctx.moveTo(0,H*i/3); ctx.lineTo(W,H*i/3); }
+    ctx.stroke();
+  }
+  S.layers.forEach(drawLayer);
+  const L = S.layers[S.sel];
+  if (!S.exporting && L && L._box){
+    ctx.save(); ctx.strokeStyle = '#3FD0C4'; ctx.lineWidth = Math.max(2, W/360);
+    ctx.setLineDash([W/48, W/72]); ctx.strokeRect(L._box.x, L._box.y, L._box.w, L._box.h); ctx.restore();
+  }
+}
+let lastTimeStr = '';
+function updateTime(){
+  if (!S.hasVideo) return;
+  const s = fmt(vid.currentTime) + ' / ' + fmt(S.dur);
+  if (s !== lastTimeStr){ $('time').textContent = s; lastTimeStr = s; }
+  if (!scrubbing && S.dur) $('scrub').value = Math.round(vid.currentTime/S.dur*1000);
+}
+function loop(){
+  if (segEnd && endResolve && vid.currentTime >= segEnd - .03) endResolve();
+  if (S.dirty || !vid.paused || S.exporting){ S.dirty = false; render(); updateTime(); }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- السحب على المعاينة ---------- */
+let drag = null;
+const toOut = e => { const r = cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; };
+cv.addEventListener('pointerdown', e => {
+  if (S.exporting) return;
+  const p = toOut(e); let hit = -1;
+  for (let i = S.layers.length-1; i >= 0; i--){
+    const b = S.layers[i]._box;
+    if (b && p.x >= b.x && p.x <= b.x+b.w && p.y >= b.y && p.y <= b.y+b.h){ hit = i; break; }
+  }
+  if (hit >= 0){ S.sel = hit; syncLayerUI(); drag = {t:'text', i:hit, sx:p.x, sy:p.y, ox:S.layers[hit].x, oy:S.layers[hit].y}; }
+  else if (S.hasVideo){ drag = {t:'pan', sx:p.x, sy:p.y, ox:S.panX, oy:S.panY}; }
+  if (drag){ cv.setPointerCapture(e.pointerId); cv.classList.add('dragging'); S.dirty = true; }
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const p = toOut(e), dx = p.x-drag.sx, dy = p.y-drag.sy;
+  if (drag.t === 'text'){ const L = S.layers[drag.i]; L.x = clamp(drag.ox + dx/S.outW, 0, 1); L.y = clamp(drag.oy + dy/S.outH, 0, 1); }
+  else { S.panX = drag.ox + dx; S.panY = drag.oy + dy; }
+  S.dirty = true;
+});
+const endDrag = () => { drag = null; cv.classList.remove('dragging'); };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+
+/* ---------- تحميل الفيديو والتشغيل ---------- */
+let scrubbing = false;
+function say(t, err){ const m = $('msg'); m.textContent = t || ''; m.classList.toggle('err', !!err); }
+function loadFile(f){
+  if (!f) return;
+  if (!/^video\//.test(f.type) && !/\.(mp4|mov|m4v|webm|mkv)$/i.test(f.name)){ say('اختر ملف فيديو.', true); return; }
+  if (S.url) URL.revokeObjectURL(S.url);
+  S.url = URL.createObjectURL(f); S.name = f.name; S.hasVideo = false;
+  vid.src = S.url; vid.load();
+  $('fileName').textContent = f.name; say('');
+  clearResult();
+}
+vid.addEventListener('loadedmetadata', () => {
+  S.vw = vid.videoWidth; S.vh = vid.videoHeight; S.dur = isFinite(vid.duration) ? vid.duration : 0;
+  S.hasVideo = true; S.zoom = 1; S.panX = S.panY = 0; $('zoom').value = 100; $('zoomVal').textContent = '100%';
+  $('pick').hidden = true; $('playBtn').disabled = false; $('scrub').disabled = false; $('exportBtn').disabled = false;
+  $('meta').textContent = S.vw + '×' + S.vh + ' · ' + fmt(S.dur);
+  updatePlan();
+  try { vid.currentTime = Math.min(.05, S.dur/2); } catch(e){}
+  S.dirty = true;
+});
+['loadeddata','seeked','canplay'].forEach(ev => vid.addEventListener(ev, () => S.dirty = true));
+vid.addEventListener('error', () => { S.hasVideo = false; say('تعذر فتح هذا الفيديو في المتصفح. جرّب ملف MP4.', true); });
+vid.addEventListener('play', () => { $('icoPlay').hidden = true; $('icoPause').hidden = false; $('playBtn').setAttribute('aria-label','إيقاف مؤقت'); });
+vid.addEventListener('pause', () => { $('icoPlay').hidden = false; $('icoPause').hidden = true; $('playBtn').setAttribute('aria-label','تشغيل'); S.dirty = true; });
+$('playBtn').onclick = () => {
+  if (!S.hasVideo || S.exporting) return;
+  if (vid.paused){ if (AC && AC.state === 'suspended') AC.resume(); vid.play().catch(() => {}); } else vid.pause();
+};
+$('scrub').addEventListener('input', e => { if (!S.hasVideo || S.exporting) return; scrubbing = true; vid.currentTime = e.target.value/1000*S.dur; });
+$('scrub').addEventListener('change', () => scrubbing = false);
+$('file').onchange = e => loadFile(e.target.files[0]);
+$('openBtn').onclick = $('pickBtn').onclick = () => $('file').click();
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+/* ---------- الصوت والتصدير ---------- */
+let AC = null, dest = null, gain = null;
+function ensureAudio(){
+  if (AC) return true;
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    const src = AC.createMediaElementSource(vid);
+    dest = AC.createMediaStreamDestination(); gain = AC.createGain();
+    src.connect(dest); src.connect(gain); gain.connect(AC.destination);
+    return true;
+  } catch(e){ AC = null; return false; }
+}
+function pickMime(){
+  if (!window.MediaRecorder || !cv.captureStream) return null;
+  const list = [
+    ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','mp4'], ['video/mp4;codecs=avc1,mp4a.40.2','mp4'], ['video/mp4','mp4'],
+    ['video/webm;codecs=vp9,opus','webm'], ['video/webm;codecs=vp8,opus','webm'], ['video/webm','webm']
+  ];
+  for (const [type, ext] of list) if (MediaRecorder.isTypeSupported(type)) return {type, ext};
+  return null;
+}
+function seekTo(t){
+  return new Promise(res => {
+    if (Math.abs(vid.currentTime - t) < .02){ res(); return; }
+    const h = () => { vid.removeEventListener('seeked', h); res(); };
+    vid.addEventListener('seeked', h); vid.currentTime = t; setTimeout(res, 1500);
+  });
+}
+let endResolve = null, cancelFlag = false, results = [], segEnd = 0;
+S.split = {mode:'none', count:2, minutes:1};
+vid.addEventListener('ended', () => { if (endResolve) endResolve(); });
+function setBusy(b){
+  $('ctrls').disabled = b; $('exportBtn').disabled = b || !S.hasVideo;
+  $('cancelBtn').hidden = !b; $('prog').hidden = !b;
+  $('playBtn').disabled = b || !S.hasVideo; $('scrub').disabled = b || !S.hasVideo;
+}
+function clearResult(){
+  results.forEach(r => URL.revokeObjectURL(r.url)); results = [];
+  $('result').hidden = true; $('resVid').removeAttribute('src'); $('parts').innerHTML = '';
+}
+
+/* ---------- التقسيم ---------- */
+function getSegments(){
+  const d = S.dur; if (!d) return [];
+  if (S.split.mode === 'count'){
+    const n = clamp(Math.round(S.split.count) || 2, 2, 100), len = d/n;
+    return Array.from({length:n}, (_, i) => [i*len, i === n-1 ? d : (i+1)*len]);
+  }
+  if (S.split.mode === 'minutes'){
+    const len = Math.max(1, d/100, (+S.split.minutes || 1)*60), segs = [];
+    for (let t = 0; t < d - .05; t += len) segs.push([t, Math.min(d, t+len)]);
+    if (segs.length > 1){ const l = segs[segs.length-1]; if (l[1]-l[0] < 1){ segs.pop(); segs[segs.length-1][1] = d; } }
+    return segs;
+  }
+  return [[0, d]];
+}
+const partsWord = n => n === 2 ? 'جزءان' : (n <= 10 ? n + ' أجزاء' : n + ' جزءاً');
+function updatePlan(){
+  const el = $('plan');
+  if (!S.hasVideo){ el.textContent = 'اختر فيديو لرؤية التقسيم.'; return; }
+  const segs = getSegments();
+  if (S.split.mode === 'none' || segs.length < 2){
+    el.innerHTML = 'سيُصدَّر الفيديو كاملاً في ملف واحد، مدته <b dir="ltr">' + fmt(S.dur) + '</b>';
+    if (S.split.mode !== 'none') el.innerHTML += '. المدة المطلوبة أطول من الفيديو.';
+    return;
+  }
+  const first = segs[0][1]-segs[0][0], last = segs[segs.length-1][1]-segs[segs.length-1][0];
+  let t = 'سيُنتَج <b>' + partsWord(segs.length) + '</b>، مدة كل جزء <b dir="ltr">' + fmt(first) + '</b>';
+  if (Math.abs(first-last) > .5) t += '، والأخير <b dir="ltr">' + fmt(last) + '</b>';
+  el.innerHTML = t;
+}
+document.querySelectorAll('[data-split]').forEach(b => b.onclick = () => {
+  S.split.mode = b.dataset.split;
+  document.querySelectorAll('[data-split]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $('countField').hidden = S.split.mode !== 'count';
+  $('minField').hidden = S.split.mode !== 'minutes';
+  updatePlan();
+});
+$('splitCount').oninput = e => { S.split.count = +e.target.value; updatePlan(); };
+$('splitMin').oninput = e => { S.split.minutes = +e.target.value; updatePlan(); };
+
+/* ---------- قائمة النتائج والحفظ ---------- */
+function renderParts(){
+  const box = $('parts'); box.innerHTML = '';
+  results.forEach((r, i) => {
+    const row = document.createElement('div'); row.className = 'part';
+    const pn = document.createElement('span'); pn.className = 'pn'; pn.textContent = results.length > 1 ? 'الجزء ' + (i+1) : 'الفيديو';
+    const mt = document.createElement('span'); mt.className = 'meta'; mt.dir = 'ltr'; mt.textContent = r.label;
+    const pv = document.createElement('button'); pv.type = 'button'; pv.className = 'btn'; pv.textContent = 'معاينة';
+    pv.onclick = () => { $('resVid').src = r.url; $('resVid').play().catch(() => {}); };
+    const sv = document.createElement('button'); sv.type = 'button'; sv.className = 'btn primary'; sv.textContent = 'حفظ';
+    sv.onclick = () => saveOne(r);
+    row.append(pn, mt, pv, sv); box.appendChild(row);
+  });
+  $('saveAllBtn').hidden = results.length < 2;
+  $('result').hidden = results.length === 0;
+  if (results.length && !$('resVid').getAttribute('src')) $('resVid').src = results[0].url;
+}
+async function saveOne(r){
+  try {
+    const a = document.createElement('a');
+    a.href = r.url; a.download = r.filename; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    say('تم بدء تحميل ' + r.filename); return true;
+  } catch(e){
+    say('تعذر الحفظ. اضغط مطولاً على الفيديو في الأعلى واختر حفظ.', true); return false;
+  }
+}
+$('saveAllBtn').onclick = async () => {
+  for (const r of results){ const ok = await saveOne(r); if (!ok) break; await sleep(900); }
+};
+
+/* ---------- التصدير ---------- */
+async function exportVideo(){
+  if (!S.hasVideo || S.exporting) return;
+  const m = pickMime();
+  if (!m){ say('هذا المتصفح لا يدعم تسجيل الفيديو. جرّب نسخة حديثة من Chrome أو Safari.', true); return; }
+  const segs = getSegments(), total = segs.length;
+  S.exporting = true; cancelFlag = false; clearResult(); setBusy(true); vid.pause(); say('جارٍ التجهيز…');
+  let timer = 0, audioOK = false;
+  try {
+    await Promise.all(S.layers.map(loadFont));
+    audioOK = ensureAudio();
+    if (audioOK){ try { await AC.resume(); } catch(e){} gain.gain.value = 0; } else vid.muted = true;
+    const tracks = [...cv.captureStream(30).getVideoTracks()];
+    if (audioOK) tracks.push(...dest.stream.getAudioTracks());
+    const stream = new MediaStream(tracks);
+    const bps = clamp(S.outW*S.outH*30*.12, 2.5e6, 14e6);
+    const base = (S.name || 'video').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 60) || 'video';
+    const sumDur = segs.reduce((x, g) => x + g[1] - g[0], 0) || 1;
+    let doneDur = 0, failed = false;
+    for (let i = 0; i < total && !cancelFlag; i++){
+      const a = segs[i][0], b = segs[i][1];
+      await seekTo(a); S.dirty = true; render();
+      const rec = new MediaRecorder(stream, {mimeType:m.type, videoBitsPerSecond:bps});
+      const chunks = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise(r => rec.onstop = r);
+      const ended = new Promise(r => endResolve = r);
+      segEnd = b;
+      rec.start(500);
+      await vid.play();
+      clearInterval(timer);
+      timer = setInterval(() => {
+        const cur = clamp(vid.currentTime - a, 0, b - a), p = (doneDur + cur)/sumDur;
+        $('prog').value = p;
+        say((total > 1 ? 'الجزء ' + (i+1) + ' من ' + total + ' · ' : 'جارٍ التصدير ') + Math.round(p*100) + '٪');
+        if (segEnd && endResolve && vid.currentTime >= segEnd - .03) endResolve();
+      }, 100);
+      const guard = setTimeout(() => endResolve && endResolve(), (b - a)*1000 + 8000);
+      await ended; clearTimeout(guard); segEnd = 0; endResolve = null;
+      vid.pause(); await sleep(250);
+      if (rec.state !== 'inactive') rec.stop();
+      await stopped;
+      doneDur += b - a;
+      if (cancelFlag) break;
+      if (!chunks.length){ failed = true; continue; }
+      const blob = new Blob(chunks, {type:m.type.split(';')[0]});
+      const name = base + (total > 1 ? '-part' + (i+1) + 'of' + total : '') + '-' + S.outW + 'x' + S.outH + '.' + m.ext;
+      results.push({blob, url:URL.createObjectURL(blob), filename:name,
+        label:fmt(a) + ' – ' + fmt(b) + ' · ' + m.ext.toUpperCase() + ' · ' + fmtBytes(blob.size)});
+      renderParts();
+    }
+    if (cancelFlag) say(results.length ? 'تم الإلغاء. الأجزاء المكتملة: ' + results.length + ' من ' + total + '.' : 'تم إلغاء التصدير.');
+    else if (!results.length) say('لم يُنتج التصدير أي بيانات. أعد المحاولة.', true);
+    else if (failed) say('اكتمل ' + results.length + ' من ' + total + ' أجزاء، وفشل الباقي.', true);
+    else say((audioOK ? '' : 'بدون صوت لأن المتصفح لم يسمح بالتقاطه. ') + (total > 1 ? 'تم تصدير ' + partsWord(total) + '.' : 'تم التصدير.'));
+  } catch(e){
+    say('تعذر التصدير: ' + (e && e.message ? e.message : 'خطأ غير معروف'), true);
+  } finally {
+    clearInterval(timer); endResolve = null; segEnd = 0;
+    if (gain) gain.gain.value = 1; vid.muted = false; vid.pause();
+    S.exporting = false; setBusy(false); $('prog').value = 0;
+    try { vid.currentTime = Math.min(.05, S.dur/2); } catch(e){}
+    S.dirty = true;
+  }
+}
+$('exportBtn').onclick = exportVideo;
+$('cancelBtn').onclick = () => { cancelFlag = true; vid.pause(); if (endResolve) endResolve(); };
+
+/* ---------- البداية ---------- */
+buildRatios(); syncDimsUI(); computeOut(); syncLayerUI();
+if (!pickMime()) say('هذا المتصفح لا يدعم التصدير. يمكنك التجربة لكن الحفظ يحتاج متصفحاً حديثاً.', true);
+if (document.fonts) { S.layers.forEach(L => loadFont(L).then(() => S.dirty = true)); document.fonts.ready.then(() => S.dirty = true); }
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
